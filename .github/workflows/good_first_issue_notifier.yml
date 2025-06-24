@@ -1,0 +1,16 @@
+name: Notify Good First Issue
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  notify:
+    if: github.event.label.name == 'good first issue'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log New Good First Issue
+        run: |
+          echo "🔔 A new Good First Issue has been labeled!"
+          echo "🔹 Title: ${{ github.event.issue.title }}"
+          echo "🔗 Link: ${{ github.event.issue.html_url }}"

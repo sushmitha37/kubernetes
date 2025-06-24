@@ -1,0 +1,17 @@
+name: Poll Upstream for Good First Issues
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'  # every 15 minutes
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for New Good First Issues
+        run: |
+          curl -s "https://api.github.com/repos/kubernetes/kubernetes/issues?labels=good%20first%20issue&state=open" |
+          jq '.[] | {title: .title, url: .html_url}' > issues.json
+          
+          echo "Fetched good first issues:"
+          cat issues.json

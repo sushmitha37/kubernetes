@@ -39,6 +39,7 @@ import (
 	"k8s.io/component-base/metrics/testutil"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/ktesting"
+	fwk "k8s.io/kube-scheduler/framework"
 	podutil "k8s.io/kubernetes/pkg/api/v1/pod"
 	"k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
@@ -48,7 +49,6 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/schedulinggates"
 	"k8s.io/kubernetes/pkg/scheduler/metrics"
 	st "k8s.io/kubernetes/pkg/scheduler/testing"
-	"k8s.io/kubernetes/pkg/scheduler/util"
 	testingclock "k8s.io/utils/clock/testing"
 )
 
@@ -59,15 +59,15 @@ const queueMetricMetadata = `
 
 var (
 	// nodeAdd is the event when a new node is added to the cluster.
-	nodeAdd = framework.ClusterEvent{Resource: framework.Node, ActionType: framework.Add}
+	nodeAdd = fwk.ClusterEvent{Resource: fwk.Node, ActionType: fwk.Add}
 	// pvAdd is the event when a persistent volume is added in the cluster.
-	pvAdd = framework.ClusterEvent{Resource: framework.PersistentVolume, ActionType: framework.Add}
+	pvAdd = fwk.ClusterEvent{Resource: fwk.PersistentVolume, ActionType: fwk.Add}
 	// pvUpdate is the event when a persistent volume is updated in the cluster.
-	pvUpdate = framework.ClusterEvent{Resource: framework.PersistentVolume, ActionType: framework.Update}
+	pvUpdate = fwk.ClusterEvent{Resource: fwk.PersistentVolume, ActionType: fwk.Update}
 	// pvcAdd is the event when a persistent volume claim is added in the cluster.
-	pvcAdd = framework.ClusterEvent{Resource: framework.PersistentVolumeClaim, ActionType: framework.Add}
+	pvcAdd = fwk.ClusterEvent{Resource: fwk.PersistentVolumeClaim, ActionType: fwk.Add}
 	// csiNodeUpdate is the event when a CSI node is updated in the cluster.
-	csiNodeUpdate = framework.ClusterEvent{Resource: framework.CSINode, ActionType: framework.Update}
+	csiNodeUpdate = fwk.ClusterEvent{Resource: fwk.CSINode, ActionType: fwk.Update}
 
 	lowPriority, midPriority, highPriority = int32(0), int32(100), int32(1000)
 	mediumPriority                         = (lowPriority + highPriority) / 2
@@ -96,11 +96,11 @@ var (
 		cmpopts.IgnoreFields(nominator{}, "podLister", "nLock"),
 	}
 
-	queueHintReturnQueue = func(logger klog.Logger, pod *v1.Pod, oldObj, newObj interface{}) (framework.QueueingHint, error) {
-		return framework.Queue, nil
+	queueHintReturnQueue = func(logger klog.Logger, pod *v1.Pod, oldObj, newObj interface{}) (fwk.QueueingHint, error) {
+		return fwk.Queue, nil
 	}
-	queueHintReturnSkip = func(logger klog.Logger, pod *v1.Pod, oldObj, newObj interface{}) (framework.QueueingHint, error) {
-		return framework.QueueSkip, nil
+	queueHintReturnSkip = func(logger klog.Logger, pod *v1.Pod, oldObj, newObj interface{}) (fwk.QueueingHint, error) {
+		return fwk.QueueSkip, nil
 	}
 )
 
@@ -108,7 +108,7 @@ func init() {
 	metrics.Register()
 }
 
-func setQueuedPodInfoGated(queuedPodInfo *framework.QueuedPodInfo, gatingPlugin string, gatingPluginEvents []framework.ClusterEvent) *framework.QueuedPodInfo {
+func setQueuedPodInfoGated(queuedPodInfo *framework.QueuedPodInfo, gatingPlugin string, gatingPluginEvents []fwk.ClusterEvent) *framework.QueuedPodInfo {
 	queuedPodInfo.GatingPlugin = gatingPlugin
 	// GatingPlugin should also be registered in UnschedulablePlugins.
 	queuedPodInfo.UnschedulablePlugins = sets.New(gatingPlugin)
@@ -196,7 +196,7 @@ func Test_InFlightPods(t *testing.T) {
 
 	type action struct {
 		// ONLY ONE of the following should be set.
-		eventHappens *framework.ClusterEvent
+		eventHappens *fwk.ClusterEvent
 		podPopped    *v1.Pod
 		// podCreated is the Pod that is created and inserted into the activeQ.
 		podCreated *v1.Pod
@@ -829,12 +829,12 @@ func Test_InFlightPods(t *testing.T) {
 
 			var wantInFlightEvents []interface{}
 			for _, value := range test.wantInFlightEvents {
-				if event, ok := value.(framework.ClusterEvent); ok {
+				if event, ok := value.(fwk.ClusterEvent); ok {
 					value = &clusterEvent{event: event}
 				}
 				wantInFlightEvents = append(wantInFlightEvents, value)
 			}
-			if diff := cmp.Diff(wantInFlightEvents, q.activeQ.listInFlightEvents(), cmp.AllowUnexported(clusterEvent{}), cmpopts.EquateComparable(framework.ClusterEvent{})); diff != "" {
+			if diff := cmp.Diff(wantInFlightEvents, q.activeQ.listInFlightEvents(), cmp.AllowUnexported(clusterEvent{}), cmpopts.EquateComparable(fwk.ClusterEvent{})); diff != "" {
 				t.Errorf("Unexpected diff in inFlightEvents (-want, +got):\n%s", diff)
 			}
 
@@ -1224,7 +1224,7 @@ func TestPriorityQueue_Update(t *testing.T) {
 		},
 		{
 			name:  "when updating a pod which is in unschedulable pods but the plugin returns skip, it will remain in unschedulablePods",
-			wantQ: unschedulablePods,
+			wantQ: unschedulableQ,
 			prepareFunc: func(t *testing.T, logger klog.Logger, q *PriorityQueue) (oldPod, newPod *v1.Pod) {
 				q.unschedulablePods.addOrUpdate(q.newQueuedPodInfo(medPriorityPodInfo.Pod, skipPlugin), framework.EventUnscheduledPodAdd.Label())
 				updatedPod := medPriorityPodInfo.Pod.DeepCopy()
@@ -1288,7 +1288,7 @@ func TestPriorityQueue_Update(t *testing.T) {
 				})
 
 				if pInfoFromUnsched := q.unschedulablePods.get(newPod); pInfoFromUnsched != nil {
-					if tt.wantQ != unschedulablePods {
+					if tt.wantQ != unschedulableQ {
 						t.Errorf("expected pod %s to not be queued to unschedulablePods, but it was", newPod.Name)
 					}
 					pInfo = pInfoFromUnsched
@@ -1533,7 +1533,7 @@ func (pl *preEnqueuePlugin) Name() string {
 	return "preEnqueuePlugin"
 }
 
-func (pl *preEnqueuePlugin) PreEnqueue(ctx context.Context, p *v1.Pod) *framework.Status {
+func (pl *preEnqueuePlugin) PreEnqueue(ctx context.Context, p *v1.Pod) *fwk.Status {
 	for _, allowed := range pl.allowlists {
 		for label := range p.Labels {
 			if label == allowed {
@@ -1541,7 +1541,7 @@ func (pl *preEnqueuePlugin) PreEnqueue(ctx context.Context, p *v1.Pod) *framewor
 			}
 		}
 	}
-	return framework.NewStatus(framework.UnschedulableAndUnresolvable, "pod name not in allowlists")
+	return fwk.NewStatus(fwk.UnschedulableAndUnresolvable, "pod name not in allowlists")
 }
 
 func TestPriorityQueue_moveToActiveQ(t *testing.T) {
@@ -1550,6 +1550,7 @@ func TestPriorityQueue_moveToActiveQ(t *testing.T) {
 		plugins                []framework.PreEnqueuePlugin
 		pod                    *v1.Pod
 		event                  string
+		movesFromBackoffQ      bool
 		popFromBackoffQEnabled []bool
 		wantUnschedulablePods  int
 		wantSuccess            bool
@@ -1581,9 +1582,7 @@ func TestPriorityQueue_moveToActiveQ(t *testing.T) {
 			wantSuccess:           false,
 		},
 		{
-			// With SchedulerPopFromBackoffQ enabled, the queue assumes the pod has already passed PreEnqueue,
-			// and it doesn't run PreEnqueue again, always puts the pod to activeQ.
-			name: "preEnqueue plugin registered, preEnqueue plugin would reject the pod, but isn't run",
+			name: "preEnqueue plugin registered, preEnqueue rejects the pod, even if it is after backoff",
 			plugins: []framework.PreEnqueuePlugin{
 				&preEnqueuePlugin{allowlists: []string{"foo", "bar"}},
 				&preEnqueuePlugin{allowlists: []string{"foo"}},
@@ -1595,13 +1594,42 @@ func TestPriorityQueue_moveToActiveQ(t *testing.T) {
 			wantSuccess:            false,
 		},
 		{
-			name: "preEnqueue plugin registered, pod would fail one preEnqueue plugin, but is after backoff",
+			// With SchedulerPopFromBackoffQ enabled, the queue assumes the pod has already passed PreEnqueue,
+			// and it doesn't run PreEnqueue again, always puts the pod to activeQ.
+			name: "preEnqueue plugin registered, pod would fail one preEnqueue plugin, but it is moved from backoffQ after completing backoff, so preEnqueue is not executed",
 			plugins: []framework.PreEnqueuePlugin{
 				&preEnqueuePlugin{allowlists: []string{"foo", "bar"}},
 				&preEnqueuePlugin{allowlists: []string{"foo"}},
 			},
 			pod:                    st.MakePod().Name("bar").Label("bar", "").Obj(),
 			event:                  framework.BackoffComplete,
+			movesFromBackoffQ:      true,
+			popFromBackoffQEnabled: []bool{true},
+			wantUnschedulablePods:  0,
+			wantSuccess:            true,
+		},
+		{
+			name: "preEnqueue plugin registered, pod failed one preEnqueue plugin when activated from unschedulablePods",
+			plugins: []framework.PreEnqueuePlugin{
+				&preEnqueuePlugin{allowlists: []string{"foo", "bar"}},
+				&preEnqueuePlugin{allowlists: []string{"foo"}},
+			},
+			pod:                    st.MakePod().Name("bar").Label("bar", "").Obj(),
+			event:                  framework.ForceActivate,
+			movesFromBackoffQ:      false,
+			popFromBackoffQEnabled: []bool{true},
+			wantUnschedulablePods:  1,
+			wantSuccess:            false,
+		},
+		{
+			name: "preEnqueue plugin registered, pod would fail one preEnqueue plugin, but was activated from backoffQ, so preEnqueue is not executed",
+			plugins: []framework.PreEnqueuePlugin{
+				&preEnqueuePlugin{allowlists: []string{"foo", "bar"}},
+				&preEnqueuePlugin{allowlists: []string{"foo"}},
+			},
+			pod:                    st.MakePod().Name("bar").Label("bar", "").Obj(),
+			event:                  framework.ForceActivate,
+			movesFromBackoffQ:      true,
 			popFromBackoffQEnabled: []bool{true},
 			wantUnschedulablePods:  0,
 			wantSuccess:            true,
@@ -1636,7 +1664,7 @@ func TestPriorityQueue_moveToActiveQ(t *testing.T) {
 				}
 				q := NewTestQueueWithObjects(ctx, newDefaultQueueSort(), []runtime.Object{tt.pod}, WithPreEnqueuePluginMap(m),
 					WithPodInitialBackoffDuration(time.Second*30), WithPodMaxBackoffDuration(time.Second*60))
-				got := q.moveToActiveQ(logger, q.newQueuedPodInfo(tt.pod), tt.event)
+				got := q.moveToActiveQ(logger, q.newQueuedPodInfo(tt.pod), tt.event, tt.movesFromBackoffQ)
 				if got != tt.wantSuccess {
 					t.Errorf("Unexpected result: want %v, but got %v", tt.wantSuccess, got)
 				}
@@ -1760,7 +1788,7 @@ func TestPriorityQueue_moveToBackoffQ(t *testing.T) {
 func BenchmarkMoveAllToActiveOrBackoffQueue(b *testing.B) {
 	tests := []struct {
 		name      string
-		moveEvent framework.ClusterEvent
+		moveEvent fwk.ClusterEvent
 	}{
 		{
 			name:      "baseline",
@@ -1781,25 +1809,25 @@ func BenchmarkMoveAllToActiveOrBackoffQueue(b *testing.B) {
 		medPriorityPodInfo.Pod, unschedulablePodInfo.Pod,
 	}
 
-	events := []framework.ClusterEvent{
-		{Resource: framework.Node, ActionType: framework.Add},
-		{Resource: framework.Node, ActionType: framework.UpdateNodeTaint},
-		{Resource: framework.Node, ActionType: framework.UpdateNodeAllocatable},
-		{Resource: framework.Node, ActionType: framework.UpdateNodeCondition},
-		{Resource: framework.Node, ActionType: framework.UpdateNodeLabel},
-		{Resource: framework.Node, ActionType: framework.UpdateNodeAnnotation},
-		{Resource: framework.PersistentVolumeClaim, ActionType: framework.Add},
-		{Resource: framework.PersistentVolumeClaim, ActionType: framework.Update},
-		{Resource: framework.PersistentVolume, ActionType: framework.Add},
-		{Resource: framework.PersistentVolume, ActionType: framework.Update},
-		{Resource: framework.StorageClass, ActionType: framework.Add},
-		{Resource: framework.StorageClass, ActionType: framework.Update},
-		{Resource: framework.CSINode, ActionType: framework.Add},
-		{Resource: framework.CSINode, ActionType: framework.Update},
-		{Resource: framework.CSIDriver, ActionType: framework.Add},
-		{Resource: framework.CSIDriver, ActionType: framework.Update},
-		{Resource: framework.CSIStorageCapacity, ActionType: framework.Add},
-		{Resource: framework.CSIStorageCapacity, ActionType: framework.Update},
+	events := []fwk.ClusterEvent{
+		{Resource: fwk.Node, ActionType: fwk.Add},
+		{Resource: fwk.Node, ActionType: fwk.UpdateNodeTaint},
+		{Resource: fwk.Node, ActionType: fwk.UpdateNodeAllocatable},
+		{Resource: fwk.Node, ActionType: fwk.UpdateNodeCondition},
+		{Resource: fwk.Node, ActionType: fwk.UpdateNodeLabel},
+		{Resource: fwk.Node, ActionType: fwk.UpdateNodeAnnotation},
+		{Resource: fwk.PersistentVolumeClaim, ActionType: fwk.Add},
+		{Resource: fwk.PersistentVolumeClaim, ActionType: fwk.Update},
+		{Resource: fwk.PersistentVolume, ActionType: fwk.Add},
+		{Resource: fwk.PersistentVolume, ActionType: fwk.Update},
+		{Resource: fwk.StorageClass, ActionType: fwk.Add},
+		{Resource: fwk.StorageClass, ActionType: fwk.Update},
+		{Resource: fwk.CSINode, ActionType: fwk.Add},
+		{Resource: fwk.CSINode, ActionType: fwk.Update},
+		{Resource: fwk.CSIDriver, ActionType: fwk.Add},
+		{Resource: fwk.CSIDriver, ActionType: fwk.Update},
+		{Resource: fwk.CSIStorageCapacity, ActionType: fwk.Add},
+		{Resource: fwk.CSIStorageCapacity, ActionType: fwk.Update},
 	}
 
 	pluginNum := 20
@@ -1885,7 +1913,7 @@ func TestPriorityQueue_MoveAllToActiveOrBackoffQueueWithQueueingHint(t *testing.
 	tests := []struct {
 		name    string
 		podInfo *framework.QueuedPodInfo
-		hint    framework.QueueingHintFn
+		hint    fwk.QueueingHintFn
 		// duration is the duration that the Pod has been in the unschedulable queue.
 		duration time.Duration
 		// expectedQ is the queue name (activeQ, backoffQ, or unschedulablePods) that this Pod should be quened to.
@@ -1919,22 +1947,22 @@ func TestPriorityQueue_MoveAllToActiveOrBackoffQueueWithQueueingHint(t *testing.
 			name:      "Skip queues pod to unschedulablePods",
 			podInfo:   &framework.QueuedPodInfo{PodInfo: mustNewPodInfo(p), UnschedulablePlugins: sets.New("foo")},
 			hint:      queueHintReturnSkip,
-			expectedQ: unschedulablePods,
+			expectedQ: unschedulableQ,
 		},
 		{
 			name:    "QueueHintFunction is not called when Pod is gated by the plugin that isn't interested in the event",
-			podInfo: setQueuedPodInfoGated(&framework.QueuedPodInfo{PodInfo: mustNewPodInfo(p)}, names.SchedulingGates, []framework.ClusterEvent{framework.EventUnscheduledPodUpdate}),
+			podInfo: setQueuedPodInfoGated(&framework.QueuedPodInfo{PodInfo: mustNewPodInfo(p)}, names.SchedulingGates, []fwk.ClusterEvent{framework.EventUnscheduledPodUpdate}),
 			// The hintFn should not be called as the pod is gated by SchedulingGates plugin,
 			// the scheduling gate isn't interested in the node add event,
 			// and the queue should keep this Pod in the unschedQ without calling the hintFn.
-			hint: func(logger klog.Logger, pod *v1.Pod, oldObj, newObj interface{}) (framework.QueueingHint, error) {
-				return framework.Queue, fmt.Errorf("QueueingHintFn should not be called as pod is gated")
+			hint: func(logger klog.Logger, pod *v1.Pod, oldObj, newObj interface{}) (fwk.QueueingHint, error) {
+				return fwk.Queue, fmt.Errorf("QueueingHintFn should not be called as pod is gated")
 			},
-			expectedQ: unschedulablePods,
+			expectedQ: unschedulableQ,
 		},
 		{
 			name:    "QueueHintFunction is called when Pod is gated by the plugin that is interested in the event",
-			podInfo: setQueuedPodInfoGated(&framework.QueuedPodInfo{PodInfo: mustNewPodInfo(p)}, "foo", []framework.ClusterEvent{nodeAdd}),
+			podInfo: setQueuedPodInfoGated(&framework.QueuedPodInfo{PodInfo: mustNewPodInfo(p)}, "foo", []fwk.ClusterEvent{nodeAdd}),
 			// In this case, the hintFn should be called as the pod is gated by foo plugin that is interested in the NodeAdd event.
 			hint: queueHintReturnQueue,
 			// and, as a result, this pod should be queued to backoffQ.
@@ -1986,7 +2014,7 @@ func TestPriorityQueue_MoveAllToActiveOrBackoffQueueWithQueueingHint(t *testing.
 				t.Fatalf("expected pod to be queued to activeQ, but it was not")
 			}
 
-			if q.unschedulablePods.get(test.podInfo.Pod) == nil && test.expectedQ == unschedulablePods {
+			if q.unschedulablePods.get(test.podInfo.Pod) == nil && test.expectedQ == unschedulableQ {
 				t.Fatalf("expected pod to be queued to unschedulablePods, but it was not")
 			}
 		})
@@ -2386,14 +2414,14 @@ func TestPriorityQueue_AssignedPodUpdated(t *testing.T) {
 		unschedPod         *v1.Pod
 		unschedPlugin      string
 		updatedAssignedPod *v1.Pod
-		event              framework.ClusterEvent
+		event              fwk.ClusterEvent
 		wantToRequeue      bool
 	}{
 		{
 			name:               "Pod rejected by pod affinity is requeued with matching Pod's update",
 			unschedPod:         st.MakePod().Name("afp").Namespace("ns1").UID("afp").Annotation("annot2", "val2").PodAffinityExists("service", "region", st.PodAffinityWithRequiredReq).Obj(),
 			unschedPlugin:      names.InterPodAffinity,
-			event:              framework.ClusterEvent{Resource: framework.Pod, ActionType: framework.UpdatePodLabel},
+			event:              fwk.ClusterEvent{Resource: fwk.Pod, ActionType: fwk.UpdatePodLabel},
 			updatedAssignedPod: st.MakePod().Name("lbp").Namespace("ns1").Label("service", "securityscan").Node("node1").Obj(),
 			wantToRequeue:      true,
 		},
@@ -2401,7 +2429,7 @@ func TestPriorityQueue_AssignedPodUpdated(t *testing.T) {
 			name:               "Pod rejected by pod affinity isn't requeued with unrelated Pod's update",
 			unschedPod:         st.MakePod().Name("afp").Namespace("ns1").UID("afp").Annotation("annot2", "val2").PodAffinityExists("service", "region", st.PodAffinityWithRequiredReq).Obj(),
 			unschedPlugin:      names.InterPodAffinity,
-			event:              framework.ClusterEvent{Resource: framework.Pod, ActionType: framework.UpdatePodLabel},
+			event:              fwk.ClusterEvent{Resource: fwk.Pod, ActionType: fwk.UpdatePodLabel},
 			updatedAssignedPod: st.MakePod().Name("lbp").Namespace("unrelated").Label("unrelated", "unrelated").Node("node1").Obj(),
 			wantToRequeue:      false,
 		},
@@ -2409,7 +2437,7 @@ func TestPriorityQueue_AssignedPodUpdated(t *testing.T) {
 			name:               "Pod rejected by pod topology spread is requeued with Pod's update in the same namespace",
 			unschedPod:         st.MakePod().Name("tsp").Namespace("ns1").UID("tsp").SpreadConstraint(1, "node", v1.DoNotSchedule, nil, nil, nil, nil, nil).Obj(),
 			unschedPlugin:      names.PodTopologySpread,
-			event:              framework.ClusterEvent{Resource: framework.Pod, ActionType: framework.UpdatePodLabel},
+			event:              fwk.ClusterEvent{Resource: fwk.Pod, ActionType: fwk.UpdatePodLabel},
 			updatedAssignedPod: st.MakePod().Name("lbp").Namespace("ns1").Label("service", "securityscan").Node("node1").Obj(),
 			wantToRequeue:      true,
 		},
@@ -2417,7 +2445,7 @@ func TestPriorityQueue_AssignedPodUpdated(t *testing.T) {
 			name:               "Pod rejected by pod topology spread isn't requeued with unrelated Pod's update",
 			unschedPod:         st.MakePod().Name("afp").Namespace("ns1").UID("afp").Annotation("annot2", "val2").PodAffinityExists("service", "region", st.PodAffinityWithRequiredReq).Obj(),
 			unschedPlugin:      names.PodTopologySpread,
-			event:              framework.ClusterEvent{Resource: framework.Pod, ActionType: framework.UpdatePodLabel},
+			event:              fwk.ClusterEvent{Resource: fwk.Pod, ActionType: fwk.UpdatePodLabel},
 			updatedAssignedPod: st.MakePod().Name("lbp").Namespace("unrelated").Label("unrelated", "unrelated").Node("node1").Obj(),
 			wantToRequeue:      false,
 		},
@@ -2425,7 +2453,7 @@ func TestPriorityQueue_AssignedPodUpdated(t *testing.T) {
 			name:               "Pod rejected by resource fit is requeued with assigned Pod's scale down",
 			unschedPod:         st.MakePod().Name("rp").Namespace("ns1").UID("afp").Annotation("annot2", "val2").Req(map[v1.ResourceName]string{v1.ResourceCPU: "1"}).Obj(),
 			unschedPlugin:      names.NodeResourcesFit,
-			event:              framework.ClusterEvent{Resource: framework.EventResource("AssignedPod"), ActionType: framework.UpdatePodScaleDown},
+			event:              fwk.ClusterEvent{Resource: fwk.EventResource("AssignedPod"), ActionType: fwk.UpdatePodScaleDown},
 			updatedAssignedPod: st.MakePod().Name("lbp").Namespace("ns2").Node("node1").Obj(),
 			wantToRequeue:      true,
 		},
@@ -2433,7 +2461,7 @@ func TestPriorityQueue_AssignedPodUpdated(t *testing.T) {
 			name:               "Pod rejected by other plugins isn't requeued with any Pod's update",
 			unschedPod:         st.MakePod().Name("afp").Namespace("ns1").UID("afp").Annotation("annot2", "val2").Obj(),
 			unschedPlugin:      "fakePlugin",
-			event:              framework.ClusterEvent{Resource: framework.Pod, ActionType: framework.UpdatePodLabel},
+			event:              fwk.ClusterEvent{Resource: fwk.Pod, ActionType: fwk.UpdatePodLabel},
 			updatedAssignedPod: st.MakePod().Name("lbp").Namespace("unrelated").Label("unrelated", "unrelated").Node("node1").Obj(),
 			wantToRequeue:      false,
 		},
@@ -2447,8 +2475,8 @@ func TestPriorityQueue_AssignedPodUpdated(t *testing.T) {
 
 			c := testingclock.NewFakeClock(time.Now())
 			m := makeEmptyQueueingHintMapPerProfile()
-			m[""] = map[framework.ClusterEvent][]*QueueingHintFunction{
-				{Resource: framework.Pod, ActionType: framework.UpdatePodLabel}: {
+			m[""] = map[fwk.ClusterEvent][]*QueueingHintFunction{
+				{Resource: fwk.Pod, ActionType: fwk.UpdatePodLabel}: {
 					{
 						PluginName:     "fakePlugin",
 						QueueingHintFn: queueHintReturnQueue,
@@ -2462,7 +2490,7 @@ func TestPriorityQueue_AssignedPodUpdated(t *testing.T) {
 						QueueingHintFn: queueHintReturnQueue,
 					},
 				},
-				{Resource: framework.Pod, ActionType: framework.UpdatePodScaleDown}: {
+				{Resource: fwk.Pod, ActionType: fwk.UpdatePodScaleDown}: {
 					{
 						PluginName:     names.NodeResourcesFit,
 						QueueingHintFn: queueHintReturnQueue,
@@ -2506,12 +2534,12 @@ func TestPriorityQueue_NominatedPodsForNode(t *testing.T) {
 	if p, err := q.Pop(logger); err != nil || p.Pod != highPriorityPodInfo.Pod {
 		t.Errorf("Expected: %v after Pop, but got: %v", highPriorityPodInfo.Pod.Name, p.Pod.Name)
 	}
-	expectedList := []*framework.PodInfo{medPriorityPodInfo, unschedulablePodInfo}
+	expectedList := []fwk.PodInfo{medPriorityPodInfo, unschedulablePodInfo}
 	podInfos := q.NominatedPodsForNode("node1")
 	if diff := cmp.Diff(expectedList, podInfos, cmpopts.IgnoreUnexported(framework.PodInfo{})); diff != "" {
 		t.Errorf("Unexpected list of nominated Pods for node: (-want, +got):\n%s", diff)
 	}
-	podInfos[0].Pod.Name = "not mpp"
+	podInfos[0].GetPod().Name = "not mpp"
 	if diff := cmp.Diff(podInfos, q.NominatedPodsForNode("node1"), cmpopts.IgnoreUnexported(framework.PodInfo{})); diff == "" {
 		t.Error("Expected list of nominated Pods for node2 is different from podInfos")
 	}
@@ -2728,115 +2756,6 @@ func TestPriorityQueue_NewWithOptions(t *testing.T) {
 
 	if q.backoffQ.podMaxBackoffDuration() != 20*time.Second {
 		t.Errorf("Unexpected pod backoff max duration. Expected: %v, got: %v", 2*time.Second, q.backoffQ.podMaxBackoffDuration())
-	}
-}
-
-func TestUnschedulablePodsMap(t *testing.T) {
-	var pods = []*v1.Pod{
-		st.MakePod().Name("p0").Namespace("ns1").Annotation("annot1", "val1").NominatedNodeName("node1").Obj(),
-		st.MakePod().Name("p1").Namespace("ns1").Annotation("annot", "val").Obj(),
-		st.MakePod().Name("p2").Namespace("ns2").Annotation("annot2", "val2").Annotation("annot3", "val3").NominatedNodeName("node3").Obj(),
-		st.MakePod().Name("p3").Namespace("ns4").Annotation("annot2", "val2").Annotation("annot3", "val3").NominatedNodeName("node1").Obj(),
-	}
-	var updatedPods = make([]*v1.Pod, len(pods))
-	updatedPods[0] = pods[0].DeepCopy()
-	updatedPods[1] = pods[1].DeepCopy()
-	updatedPods[3] = pods[3].DeepCopy()
-
-	tests := []struct {
-		name                   string
-		podsToAdd              []*v1.Pod
-		expectedMapAfterAdd    map[string]*framework.QueuedPodInfo
-		podsToUpdate           []*v1.Pod
-		expectedMapAfterUpdate map[string]*framework.QueuedPodInfo
-		podsToDelete           []*v1.Pod
-		expectedMapAfterDelete map[string]*framework.QueuedPodInfo
-	}{
-		{
-			name:      "create, update, delete subset of pods",
-			podsToAdd: []*v1.Pod{pods[0], pods[1], pods[2], pods[3]},
-			expectedMapAfterAdd: map[string]*framework.QueuedPodInfo{
-				util.GetPodFullName(pods[0]): {PodInfo: mustNewTestPodInfo(t, pods[0]), UnschedulablePlugins: sets.New[string]()},
-				util.GetPodFullName(pods[1]): {PodInfo: mustNewTestPodInfo(t, pods[1]), UnschedulablePlugins: sets.New[string]()},
-				util.GetPodFullName(pods[2]): {PodInfo: mustNewTestPodInfo(t, pods[2]), UnschedulablePlugins: sets.New[string]()},
-				util.GetPodFullName(pods[3]): {PodInfo: mustNewTestPodInfo(t, pods[3]), UnschedulablePlugins: sets.New[string]()},
-			},
-			podsToUpdate: []*v1.Pod{updatedPods[0]},
-			expectedMapAfterUpdate: map[string]*framework.QueuedPodInfo{
-				util.GetPodFullName(pods[0]): {PodInfo: mustNewTestPodInfo(t, updatedPods[0]), UnschedulablePlugins: sets.New[string]()},
-				util.GetPodFullName(pods[1]): {PodInfo: mustNewTestPodInfo(t, pods[1]), UnschedulablePlugins: sets.New[string]()},
-				util.GetPodFullName(pods[2]): {PodInfo: mustNewTestPodInfo(t, pods[2]), UnschedulablePlugins: sets.New[string]()},
-				util.GetPodFullName(pods[3]): {PodInfo: mustNewTestPodInfo(t, pods[3]), UnschedulablePlugins: sets.New[string]()},
-			},
-			podsToDelete: []*v1.Pod{pods[0], pods[1]},
-			expectedMapAfterDelete: map[string]*framework.QueuedPodInfo{
-				util.GetPodFullName(pods[2]): {PodInfo: mustNewTestPodInfo(t, pods[2]), UnschedulablePlugins: sets.New[string]()},
-				util.GetPodFullName(pods[3]): {PodInfo: mustNewTestPodInfo(t, pods[3]), UnschedulablePlugins: sets.New[string]()},
-			},
-		},
-		{
-			name:      "create, update, delete all",
-			podsToAdd: []*v1.Pod{pods[0], pods[3]},
-			expectedMapAfterAdd: map[string]*framework.QueuedPodInfo{
-				util.GetPodFullName(pods[0]): {PodInfo: mustNewTestPodInfo(t, pods[0]), UnschedulablePlugins: sets.New[string]()},
-				util.GetPodFullName(pods[3]): {PodInfo: mustNewTestPodInfo(t, pods[3]), UnschedulablePlugins: sets.New[string]()},
-			},
-			podsToUpdate: []*v1.Pod{updatedPods[3]},
-			expectedMapAfterUpdate: map[string]*framework.QueuedPodInfo{
-				util.GetPodFullName(pods[0]): {PodInfo: mustNewTestPodInfo(t, pods[0]), UnschedulablePlugins: sets.New[string]()},
-				util.GetPodFullName(pods[3]): {PodInfo: mustNewTestPodInfo(t, updatedPods[3]), UnschedulablePlugins: sets.New[string]()},
-			},
-			podsToDelete:           []*v1.Pod{pods[0], pods[3]},
-			expectedMapAfterDelete: map[string]*framework.QueuedPodInfo{},
-		},
-		{
-			name:      "delete non-existing and existing pods",
-			podsToAdd: []*v1.Pod{pods[1], pods[2]},
-			expectedMapAfterAdd: map[string]*framework.QueuedPodInfo{
-				util.GetPodFullName(pods[1]): {PodInfo: mustNewTestPodInfo(t, pods[1]), UnschedulablePlugins: sets.New[string]()},
-				util.GetPodFullName(pods[2]): {PodInfo: mustNewTestPodInfo(t, pods[2]), UnschedulablePlugins: sets.New[string]()},
-			},
-			podsToUpdate: []*v1.Pod{updatedPods[1]},
-			expectedMapAfterUpdate: map[string]*framework.QueuedPodInfo{
-				util.GetPodFullName(pods[1]): {PodInfo: mustNewTestPodInfo(t, updatedPods[1]), UnschedulablePlugins: sets.New[string]()},
-				util.GetPodFullName(pods[2]): {PodInfo: mustNewTestPodInfo(t, pods[2]), UnschedulablePlugins: sets.New[string]()},
-			},
-			podsToDelete: []*v1.Pod{pods[2], pods[3]},
-			expectedMapAfterDelete: map[string]*framework.QueuedPodInfo{
-				util.GetPodFullName(pods[1]): {PodInfo: mustNewTestPodInfo(t, updatedPods[1]), UnschedulablePlugins: sets.New[string]()},
-			},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			upm := newUnschedulablePods(nil, nil)
-			for _, p := range test.podsToAdd {
-				upm.addOrUpdate(newQueuedPodInfoForLookup(p), framework.EventUnscheduledPodAdd.Label())
-			}
-			if diff := cmp.Diff(test.expectedMapAfterAdd, upm.podInfoMap, cmpopts.IgnoreUnexported(framework.PodInfo{})); diff != "" {
-				t.Errorf("Unexpected map after adding pods(-want, +got):\n%s", diff)
-			}
-
-			if len(test.podsToUpdate) > 0 {
-				for _, p := range test.podsToUpdate {
-					upm.addOrUpdate(newQueuedPodInfoForLookup(p), framework.EventUnscheduledPodUpdate.Label())
-				}
-				if diff := cmp.Diff(test.expectedMapAfterUpdate, upm.podInfoMap, cmpopts.IgnoreUnexported(framework.PodInfo{})); diff != "" {
-					t.Errorf("Unexpected map after updating pods (-want, +got):\n%s", diff)
-				}
-			}
-			for _, p := range test.podsToDelete {
-				upm.delete(p, false)
-			}
-			if diff := cmp.Diff(test.expectedMapAfterDelete, upm.podInfoMap, cmpopts.IgnoreUnexported(framework.PodInfo{})); diff != "" {
-				t.Errorf("Unexpected map after deleting pods (-want, +got):\n%s", diff)
-			}
-			upm.clear()
-			if len(upm.podInfoMap) != 0 {
-				t.Errorf("Expected the map to be empty, but has %v elements.", len(upm.podInfoMap))
-			}
-		})
 	}
 }
 
@@ -3385,7 +3304,7 @@ func TestPendingPodsMetric(t *testing.T) {
 	gated := makeQueuedPodInfos(total-queueableNum, "y", failme, timestamp)
 	// Manually mark them as gated=true.
 	for _, pInfo := range gated {
-		setQueuedPodInfoGated(pInfo, preenqueuePluginName, []framework.ClusterEvent{framework.EventUnscheduledPodUpdate})
+		setQueuedPodInfoGated(pInfo, preenqueuePluginName, []fwk.ClusterEvent{framework.EventUnscheduledPodUpdate})
 	}
 	pInfos = append(pInfos, gated...)
 	totalWithDelay := 20
@@ -3970,7 +3889,7 @@ func TestMoveAllToActiveOrBackoffQueue_PreEnqueueChecks(t *testing.T) {
 		name            string
 		preEnqueueCheck PreEnqueueCheck
 		podInfos        []*framework.QueuedPodInfo
-		event           framework.ClusterEvent
+		event           fwk.ClusterEvent
 		want            sets.Set[string]
 	}{
 		{
@@ -4080,23 +3999,23 @@ func mustNewPodInfo(pod *v1.Pod) *framework.PodInfo {
 func Test_isPodWorthRequeuing(t *testing.T) {
 	metrics.Register()
 	count := 0
-	queueHintReturnQueue := func(logger klog.Logger, pod *v1.Pod, oldObj, newObj interface{}) (framework.QueueingHint, error) {
+	queueHintReturnQueue := func(logger klog.Logger, pod *v1.Pod, oldObj, newObj interface{}) (fwk.QueueingHint, error) {
 		count++
-		return framework.Queue, nil
+		return fwk.Queue, nil
 	}
-	queueHintReturnSkip := func(logger klog.Logger, pod *v1.Pod, oldObj, newObj interface{}) (framework.QueueingHint, error) {
+	queueHintReturnSkip := func(logger klog.Logger, pod *v1.Pod, oldObj, newObj interface{}) (fwk.QueueingHint, error) {
 		count++
-		return framework.QueueSkip, nil
+		return fwk.QueueSkip, nil
 	}
-	queueHintReturnErr := func(logger klog.Logger, pod *v1.Pod, oldObj, newObj interface{}) (framework.QueueingHint, error) {
+	queueHintReturnErr := func(logger klog.Logger, pod *v1.Pod, oldObj, newObj interface{}) (fwk.QueueingHint, error) {
 		count++
-		return framework.QueueSkip, fmt.Errorf("unexpected error")
+		return fwk.QueueSkip, fmt.Errorf("unexpected error")
 	}
 
 	tests := []struct {
 		name                   string
 		podInfo                *framework.QueuedPodInfo
-		event                  framework.ClusterEvent
+		event                  fwk.ClusterEvent
 		oldObj                 interface{}
 		newObj                 interface{}
 		expected               queueingStrategy
@@ -4291,14 +4210,14 @@ func Test_isPodWorthRequeuing(t *testing.T) {
 				UnschedulablePlugins: sets.New("fooPlugin1", "fooPlugin2"),
 				PodInfo:              mustNewPodInfo(st.MakePod().Name("pod1").Namespace("ns1").UID("1").Obj()),
 			},
-			event:                  framework.ClusterEvent{Resource: framework.Node, ActionType: framework.UpdateNodeLabel},
+			event:                  fwk.ClusterEvent{Resource: fwk.Node, ActionType: fwk.UpdateNodeLabel},
 			oldObj:                 nil,
 			newObj:                 st.MakeNode().Obj(),
 			expected:               queueAfterBackoff,
 			expectedExecutionCount: 1,
 			queueingHintMap: QueueingHintMapPerProfile{
 				"": {
-					framework.ClusterEvent{Resource: framework.Node, ActionType: framework.UpdateNodeLabel}: {
+					fwk.ClusterEvent{Resource: fwk.Node, ActionType: fwk.UpdateNodeLabel}: {
 						{
 							PluginName: "fooPlugin1",
 							// It's only executed and interpreted as queueAfterBackoff.
@@ -4310,7 +4229,7 @@ func Test_isPodWorthRequeuing(t *testing.T) {
 							QueueingHintFn: queueHintReturnQueue,
 						},
 					},
-					framework.ClusterEvent{Resource: framework.Node, ActionType: framework.Update}: {
+					fwk.ClusterEvent{Resource: fwk.Node, ActionType: fwk.Update}: {
 						{
 							PluginName:     "fooPlugin1",
 							QueueingHintFn: queueHintReturnQueue,
@@ -4331,14 +4250,14 @@ func Test_isPodWorthRequeuing(t *testing.T) {
 				UnschedulablePlugins: sets.New("fooPlugin1"),
 				PodInfo:              mustNewPodInfo(st.MakePod().Name("pod1").Namespace("ns1").UID("1").Obj()),
 			},
-			event:                  framework.ClusterEvent{Resource: framework.Node, ActionType: framework.Add},
+			event:                  fwk.ClusterEvent{Resource: fwk.Node, ActionType: fwk.Add},
 			oldObj:                 nil,
 			newObj:                 st.MakeNode().Obj(),
 			expected:               queueAfterBackoff,
 			expectedExecutionCount: 1,
 			queueingHintMap: QueueingHintMapPerProfile{
 				"": {
-					framework.ClusterEvent{Resource: framework.WildCard, ActionType: framework.Add}: {
+					fwk.ClusterEvent{Resource: fwk.WildCard, ActionType: fwk.Add}: {
 						{
 							PluginName:     "fooPlugin1",
 							QueueingHintFn: queueHintReturnQueue,
@@ -4353,14 +4272,14 @@ func Test_isPodWorthRequeuing(t *testing.T) {
 				UnschedulablePlugins: sets.New("fooPlugin1"),
 				PodInfo:              mustNewPodInfo(st.MakePod().Name("pod1").Namespace("ns1").UID("1").Obj()),
 			},
-			event:                  framework.ClusterEvent{Resource: framework.Node, ActionType: framework.UpdateNodeLabel | framework.UpdateNodeTaint},
+			event:                  fwk.ClusterEvent{Resource: fwk.Node, ActionType: fwk.UpdateNodeLabel | fwk.UpdateNodeTaint},
 			oldObj:                 nil,
 			newObj:                 st.MakeNode().Obj(),
 			expected:               queueAfterBackoff,
 			expectedExecutionCount: 1,
 			queueingHintMap: QueueingHintMapPerProfile{
 				"": {
-					framework.ClusterEvent{Resource: framework.WildCard, ActionType: framework.All}: {
+					fwk.ClusterEvent{Resource: fwk.WildCard, ActionType: fwk.All}: {
 						{
 							PluginName:     "fooPlugin1",
 							QueueingHintFn: queueHintReturnQueue,

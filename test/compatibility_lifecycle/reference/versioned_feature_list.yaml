@@ -125,6 +125,10 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.27"
+  - default: true
+    lockToDefault: true
+    preRelease: GA
+    version: "1.34"
 - name: APIServingWithRoutine
   versionedSpecs:
   - default: false
@@ -141,6 +145,10 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.32"
+  - default: true
+    lockToDefault: true
+    preRelease: GA
+    version: "1.34"
 - name: AuthorizeWithSelectors
   versionedSpecs:
   - default: false
@@ -151,6 +159,10 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.32"
+  - default: true
+    lockToDefault: true
+    preRelease: GA
+    version: "1.34"
 - name: BtreeWatchCache
   versionedSpecs:
   - default: true
@@ -167,6 +179,12 @@
     lockToDefault: false
     preRelease: Alpha
     version: "1.32"
+- name: ClearingNominatedNodeNameAfterBinding
+  versionedSpecs:
+  - default: false
+    lockToDefault: false
+    preRelease: Alpha
+    version: "1.34"
 - name: CloudControllerManagerWebhook
   versionedSpecs:
   - default: false
@@ -235,6 +253,10 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.31"
+  - default: true
+    lockToDefault: true
+    preRelease: GA
+    version: "1.34"
 - name: ContainerCheckpoint
   versionedSpecs:
   - default: false
@@ -245,6 +267,12 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.30"
+- name: ContainerRestartRules
+  versionedSpecs:
+  - default: false
+    lockToDefault: false
+    preRelease: Alpha
+    version: "1.34"
 - name: ContainerStopSignals
   versionedSpecs:
   - default: false
@@ -317,16 +345,6 @@
     lockToDefault: true
     preRelease: GA
     version: "1.33"
-- name: CronJobsScheduledAnnotation
-  versionedSpecs:
-  - default: true
-    lockToDefault: false
-    preRelease: Beta
-    version: "1.28"
-  - default: true
-    lockToDefault: true
-    preRelease: GA
-    version: "1.32"
 - name: CrossNamespaceVolumeDataSource
   versionedSpecs:
   - default: false
@@ -389,20 +407,12 @@
     lockToDefault: false
     preRelease: Alpha
     version: "1.33"
-- name: DevicePluginCDIDevices
+- name: DetectCacheInconsistency
   versionedSpecs:
-  - default: false
-    lockToDefault: false
-    preRelease: Alpha
-    version: "1.28"
   - default: true
     lockToDefault: false
     preRelease: Beta
-    version: "1.29"
-  - default: true
-    lockToDefault: true
-    preRelease: GA
-    version: "1.31"
+    version: "1.34"
 - name: DisableAllocatorDualWrite
   versionedSpecs:
   - default: false
@@ -443,12 +453,34 @@
     lockToDefault: false
     preRelease: Alpha
     version: "1.32"
+  - default: true
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
+- name: DRAConsumableCapacity
+  versionedSpecs:
+  - default: false
+    lockToDefault: false
+    preRelease: Alpha
+    version: "1.34"
+- name: DRADeviceBindingConditions
+  versionedSpecs:
+  - default: false
+    lockToDefault: false
+    preRelease: Alpha
+    version: "1.34"
 - name: DRADeviceTaints
   versionedSpecs:
   - default: false
     lockToDefault: false
     preRelease: Alpha
     version: "1.33"
+- name: DRAExtendedResource
+  versionedSpecs:
+  - default: false
+    lockToDefault: false
+    preRelease: Alpha
+    version: "1.34"
 - name: DRAPartitionableDevices
   versionedSpecs:
   - default: false
@@ -461,6 +493,10 @@
     lockToDefault: false
     preRelease: Alpha
     version: "1.33"
+  - default: true
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
 - name: DRAResourceClaimDeviceStatus
   versionedSpecs:
   - default: false
@@ -471,6 +507,12 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.33"
+- name: DRASchedulerFilterTimeout
+  versionedSpecs:
+  - default: true
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
 - name: DynamicResourceAllocation
   versionedSpecs:
   - default: false
@@ -481,6 +523,16 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.32"
+  - default: true
+    lockToDefault: false
+    preRelease: GA
+    version: "1.34"
+- name: EnvFiles
+  versionedSpecs:
+  - default: false
+    lockToDefault: false
+    preRelease: Alpha
+    version: "1.34"
 - name: EventedPLEG
   versionedSpecs:
   - default: false
@@ -547,6 +599,12 @@
     lockToDefault: true
     preRelease: GA
     version: "1.33"
+- name: HostnameOverride
+  versionedSpecs:
+  - default: false
+    lockToDefault: false
+    preRelease: Alpha
+    version: "1.34"
 - name: HPAConfigurableTolerance
   versionedSpecs:
   - default: false
@@ -605,6 +663,12 @@
     lockToDefault: false
     preRelease: Alpha
     version: "1.32"
+- name: InPlacePodVerticalScalingExclusiveMemory
+  versionedSpecs:
+  - default: false
+    lockToDefault: false
+    preRelease: Alpha
+    version: "1.34"
 - name: InTreePluginPortworxUnregister
   versionedSpecs:
   - default: false
@@ -645,6 +709,10 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.29"
+  - default: true
+    lockToDefault: true
+    preRelease: GA
+    version: "1.34"
 - name: JobSuccessPolicy
   versionedSpecs:
   - default: false
@@ -683,6 +751,10 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.31"
+  - default: true
+    lockToDefault: true
+    preRelease: GA
+    version: "1.34"
 - name: KubeletCrashLoopBackOffMax
   versionedSpecs:
   - default: false
@@ -717,18 +789,40 @@
     lockToDefault: false
     preRelease: Alpha
     version: "1.27"
+  - default: true
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
 - name: KubeletPodResourcesGet
   versionedSpecs:
   - default: false
     lockToDefault: false
     preRelease: Alpha
     version: "1.27"
+  - default: true
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
+- name: KubeletPodResourcesListUseActivePods
+  versionedSpecs:
+  - default: false
+    lockToDefault: false
+    preRelease: GA
+    version: "1.0"
+  - default: true
+    lockToDefault: false
+    preRelease: Deprecated
+    version: "1.34"
 - name: KubeletPSI
   versionedSpecs:
   - default: false
     lockToDefault: false
     preRelease: Alpha
     version: "1.33"
+  - default: true
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
 - name: KubeletRegistrationGetOnExistsOnly
   versionedSpecs:
   - default: true
@@ -755,6 +849,10 @@
     lockToDefault: false
     preRelease: Alpha
     version: "1.33"
+  - default: true
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
 - name: KubeletTracing
   versionedSpecs:
   - default: false
@@ -765,22 +863,20 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.27"
-- name: LegacySidecarContainers
-  versionedSpecs:
   - default: true
-    lockToDefault: false
+    lockToDefault: true
     preRelease: GA
-    version: "1.0"
-  - default: false
-    lockToDefault: false
-    preRelease: Deprecated
-    version: "1.33"
+    version: "1.34"
 - name: ListFromCacheSnapshot
   versionedSpecs:
   - default: false
     lockToDefault: false
     preRelease: Alpha
     version: "1.33"
+  - default: true
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
 - name: LoadBalancerIPMode
   versionedSpecs:
   - default: false
@@ -911,12 +1007,20 @@
     lockToDefault: false
     preRelease: Alpha
     version: "1.33"
+  - default: false
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
 - name: MutatingAdmissionPolicy
   versionedSpecs:
   - default: false
     lockToDefault: false
     preRelease: Alpha
     version: "1.32"
+  - default: false
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
 - name: NFTablesProxyMode
   versionedSpecs:
   - default: false
@@ -969,6 +1073,16 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.30"
+  - default: true
+    lockToDefault: true
+    preRelease: GA
+    version: "1.34"
+- name: NominatedNodeNameForExpectation
+  versionedSpecs:
+  - default: false
+    lockToDefault: false
+    preRelease: Alpha
+    version: "1.34"
 - name: OpenAPIEnums
   versionedSpecs:
   - default: false
@@ -999,6 +1113,12 @@
     lockToDefault: false
     preRelease: Alpha
     version: "1.23"
+- name: PodCertificateRequest
+  versionedSpecs:
+  - default: false
+    lockToDefault: false
+    preRelease: Alpha
+    version: "1.34"
 - name: PodDeletionCost
   versionedSpecs:
   - default: false
@@ -1025,6 +1145,10 @@
     lockToDefault: false
     preRelease: Alpha
     version: "1.32"
+  - default: true
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
 - name: PodLifecycleSleepAction
   versionedSpecs:
   - default: false
@@ -1035,6 +1159,10 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.30"
+  - default: true
+    lockToDefault: true
+    preRelease: GA
+    version: "1.34"
 - name: PodLifecycleSleepActionAllowZero
   versionedSpecs:
   - default: false
@@ -1045,6 +1173,10 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.33"
+  - default: true
+    lockToDefault: true
+    preRelease: GA
+    version: "1.34"
 - name: PodLogsQuerySplitStreams
   versionedSpecs:
   - default: false
@@ -1057,6 +1189,10 @@
     lockToDefault: false
     preRelease: Alpha
     version: "1.33"
+  - default: true
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
 - name: PodReadyToStartContainersCondition
   versionedSpecs:
   - default: false
@@ -1107,6 +1243,18 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.34"
+- name: PreventStaticPodAPIReferences
+  versionedSpecs:
+  - default: true
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
+- name: ProbeHostPodSecurityStandards
+  versionedSpecs:
+  - default: true
+    lockToDefault: true
+    preRelease: GA
+    version: "1.34"
 - name: ProcMountType
   versionedSpecs:
   - default: false
@@ -1137,6 +1285,10 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.32"
+  - default: true
+    lockToDefault: true
+    preRelease: GA
+    version: "1.34"
 - name: RecursiveReadOnlyMounts
   versionedSpecs:
   - default: false
@@ -1184,6 +1336,12 @@
   - default: true
     lockToDefault: true
     preRelease: GA
+    version: "1.34"
+- name: RelaxedServiceNameValidation
+  versionedSpecs:
+  - default: false
+    lockToDefault: false
+    preRelease: Alpha
     version: "1.34"
 - name: ReloadKubeletServerCertificateFile
   versionedSpecs:
@@ -1247,6 +1405,12 @@
     lockToDefault: false
     preRelease: Alpha
     version: "1.29"
+- name: SchedulerAsyncAPICalls
+  versionedSpecs:
+  - default: true
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
 - name: SchedulerAsyncPreemption
   versionedSpecs:
   - default: false
@@ -1425,6 +1589,12 @@
     lockToDefault: true
     preRelease: GA
     version: "1.33"
+- name: SizeBasedListCostEstimate
+  versionedSpecs:
+  - default: true
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
 - name: SizeMemoryBackedVolumes
   versionedSpecs:
   - default: false
@@ -1435,20 +1605,6 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.22"
-  - default: true
-    lockToDefault: true
-    preRelease: GA
-    version: "1.32"
-- name: StatefulSetAutoDeletePVC
-  versionedSpecs:
-  - default: false
-    lockToDefault: false
-    preRelease: Alpha
-    version: "1.23"
-  - default: true
-    lockToDefault: false
-    preRelease: Beta
-    version: "1.27"
   - default: true
     lockToDefault: true
     preRelease: GA
@@ -1497,12 +1653,20 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.33"
+  - default: true
+    lockToDefault: true
+    preRelease: GA
+    version: "1.34"
 - name: StreamingCollectionEncodingToProtobuf
   versionedSpecs:
   - default: true
     lockToDefault: false
     preRelease: Beta
     version: "1.33"
+  - default: true
+    lockToDefault: true
+    preRelease: GA
+    version: "1.34"
 - name: StrictCostEnforcementForVAP
   versionedSpecs:
   - default: false
@@ -1543,6 +1707,12 @@
     lockToDefault: true
     preRelease: GA
     version: "1.34"
+- name: StructuredAuthenticationConfigurationEgressSelector
+  versionedSpecs:
+  - default: true
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
 - name: StructuredAuthorizationConfiguration
   versionedSpecs:
   - default: false
@@ -1573,6 +1743,12 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.32"
+- name: TokenRequestServiceAccountUIDValidation
+  versionedSpecs:
+  - default: true
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
 - name: TopologyAwareHints
   versionedSpecs:
   - default: false
@@ -1677,6 +1853,10 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.31"
+  - default: true
+    lockToDefault: false
+    preRelease: GA
+    version: "1.34"
 - name: WatchCacheInitializationPostStartHook
   versionedSpecs:
   - default: false
@@ -1707,6 +1887,10 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.33"
+  - default: true
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
 - name: WindowsCPUAndMemoryAffinity
   versionedSpecs:
   - default: false
@@ -1719,6 +1903,10 @@
     lockToDefault: false
     preRelease: Alpha
     version: "1.32"
+  - default: true
+    lockToDefault: false
+    preRelease: Beta
+    version: "1.34"
 - name: WindowsHostNetwork
   versionedSpecs:
   - default: false
@@ -1739,6 +1927,10 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.33"
+  - default: true
+    lockToDefault: true
+    preRelease: GA
+    version: "1.34"
 - name: WinOverlay
   versionedSpecs:
   - default: false
@@ -1749,3 +1941,7 @@
     lockToDefault: false
     preRelease: Beta
     version: "1.20"
+  - default: true
+    lockToDefault: true
+    preRelease: GA
+    version: "1.34"

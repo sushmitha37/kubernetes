@@ -23,7 +23,9 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
+	fwk "k8s.io/kube-scheduler/framework"
 	"k8s.io/kubernetes/pkg/scheduler/backend/heap"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
 	"k8s.io/kubernetes/pkg/scheduler/metrics"
@@ -48,8 +50,8 @@ type activeQueuer interface {
 	listInFlightEvents() []interface{}
 	listInFlightPods() []*v1.Pod
 	clusterEventsForPod(logger klog.Logger, pInfo *framework.QueuedPodInfo) ([]*clusterEvent, error)
-	addEventsIfPodInFlight(oldPod, newPod *v1.Pod, events []framework.ClusterEvent) bool
-	addEventIfAnyInFlight(oldObj, newObj interface{}, event framework.ClusterEvent) bool
+	addEventsIfPodInFlight(oldPod, newPod *v1.Pod, events []fwk.ClusterEvent) bool
+	addEventIfAnyInFlight(oldObj, newObj interface{}, event fwk.ClusterEvent) bool
 
 	schedulingCycle() int64
 	done(pod types.UID)
@@ -288,7 +290,7 @@ func (aq *activeQueue) unlockedPop(logger klog.Logger) (*framework.QueuedPodInfo
 		if _, ok := aq.inFlightPods[pInfo.Pod.UID]; ok {
 			// Just report it as an error, but no need to stop the scheduler
 			// because it likely doesn't cause any visible issues from the scheduling perspective.
-			logger.Error(nil, "the same pod is tracked in multiple places in the scheduler, and just discard it", "pod", klog.KObj(pInfo.Pod))
+			utilruntime.HandleErrorWithLogger(logger, nil, "The same pod is tracked in multiple places in the scheduler, and just discard it", "pod", klog.KObj(pInfo.Pod))
 			// Just ignore/discard this duplicated pod and try to pop the next one.
 			return aq.unlockedPop(logger)
 		}
@@ -316,7 +318,7 @@ func (aq *activeQueue) list() []*v1.Pod {
 	defer aq.lock.RUnlock()
 	var result []*v1.Pod
 	for _, pInfo := range aq.queue.List() {
-		result = append(result, pInfo.Pod)
+		result = append(result, pInfo.GetPod())
 	}
 	return result
 }
@@ -383,7 +385,7 @@ func (aq *activeQueue) clusterEventsForPod(logger klog.Logger, pInfo *framework.
 
 // addEventsIfPodInFlight adds clusterEvent to inFlightEvents if the newPod is in inFlightPods.
 // It returns true if pushed the event to the inFlightEvents.
-func (aq *activeQueue) addEventsIfPodInFlight(oldPod, newPod *v1.Pod, events []framework.ClusterEvent) bool {
+func (aq *activeQueue) addEventsIfPodInFlight(oldPod, newPod *v1.Pod, events []fwk.ClusterEvent) bool {
 	aq.lock.Lock()
 	defer aq.lock.Unlock()
 
@@ -403,7 +405,7 @@ func (aq *activeQueue) addEventsIfPodInFlight(oldPod, newPod *v1.Pod, events []f
 
 // addEventIfAnyInFlight adds clusterEvent to inFlightEvents if any pod is in inFlightPods.
 // It returns true if pushed the event to the inFlightEvents.
-func (aq *activeQueue) addEventIfAnyInFlight(oldObj, newObj interface{}, event framework.ClusterEvent) bool {
+func (aq *activeQueue) addEventIfAnyInFlight(oldObj, newObj interface{}, event fwk.ClusterEvent) bool {
 	aq.lock.Lock()
 	defer aq.lock.Unlock()
 

@@ -142,7 +142,7 @@ var (
 			"scheduler_framework_extension_point_duration_seconds": {
 				{
 					Label:  extensionPointsLabelName,
-					Values: metrics.ExtentionPoints,
+					Values: metrics.ExtensionPoints,
 				},
 			},
 			"scheduler_scheduling_attempt_duration_seconds": {
@@ -159,7 +159,7 @@ var (
 				},
 				{
 					Label:  extensionPointsLabelName,
-					Values: metrics.ExtentionPoints,
+					Values: metrics.ExtensionPoints,
 				},
 			},
 		},
@@ -276,8 +276,7 @@ type testCase struct {
 	// Optional
 	MetricsCollectorConfig *metricsCollectorConfig
 	// Template for sequence of ops that each workload must follow. Each op will
-	// be executed serially one after another. Each element of the list must be
-	// createNodesOp, createPodsOp, or barrierOp.
+	// be executed serially one after another.
 	WorkloadTemplate []op
 	// List of workloads to run under this testCase.
 	Workloads []*workload
@@ -360,7 +359,7 @@ func (w *workload) setDefaults(testCaseThresholdMetricSelector *thresholdMetricS
 		w.ThresholdMetricSelector = testCaseThresholdMetricSelector
 		return
 	}
-	// By defult, SchedulingThroughput should be compared with the threshold.
+	// By default, SchedulingThroughput should be compared with the threshold.
 	w.ThresholdMetricSelector = &thresholdMetricSelector{
 		Name: "SchedulingThroughput",
 	}
@@ -438,7 +437,7 @@ func (p *params) UnmarshalJSON(b []byte) error {
 
 // get retrieves the parameter as an integer
 func (p params) get(key string) (int, error) {
-	// JSON unmarshals integer constants in an "any" field as float.
+	// JSON unmarshal integer constants in an "any" field as float.
 	f, err := getParam[float64](p, key)
 	if err != nil {
 		return 0, err
@@ -447,7 +446,7 @@ func (p params) get(key string) (int, error) {
 }
 
 // getParam retrieves the parameter as specific type. There is no conversion,
-// so in practice this means that only types that JSON unmarshaling uses
+// so in practice this means that only types that JSON unmarshalling uses
 // (float64, string, bool) work.
 func getParam[T float64 | string | bool](p params, key string) (T, error) {
 	p.isUsed[key] = true
@@ -542,7 +541,7 @@ type realOp interface {
 	patchParams(w *workload) (realOp, error)
 }
 
-// runnableOp is an interface implemented by some operations. It makes it posssible
+// runnableOp is an interface implemented by some operations. It makes it possible
 // to execute the operation without having to add separate code into runWorkload.
 type runnableOp interface {
 	realOp
@@ -676,7 +675,7 @@ type createPodsOp struct {
 	Duration metav1.Duration
 	// Template parameter for Duration.
 	DurationParam string
-	// Whether or not to enable metrics collection for this createPodsOp.
+	// Whether to enable metrics collection for this createPodsOp.
 	// Optional. Both CollectMetrics and SkipWaitToCompletion cannot be true at
 	// the same time for a particular createPodsOp.
 	CollectMetrics bool
@@ -688,7 +687,7 @@ type createPodsOp struct {
 	// If nil, DefaultPodTemplatePath will be used.
 	// Optional
 	PodTemplatePath *string
-	// Whether or not to wait for all pods in this op to get scheduled.
+	// Whether to wait for all pods in this op to get scheduled.
 	// Defaults to false if not specified.
 	// Optional
 	SkipWaitToCompletion bool
@@ -787,7 +786,7 @@ type deletePodsOp struct {
 	// If empty, it will delete all Pods in the namespace.
 	// Optional.
 	LabelSelector map[string]string
-	// Whether or not to wait for all pods in this op to be deleted.
+	// Whether to wait for all pods in this op to be deleted.
 	// Defaults to false if not specified.
 	// Optional
 	SkipWaitToCompletion bool
@@ -1021,7 +1020,7 @@ func initTestOutput(tb testing.TB) io.Writer {
 
 var specialFilenameChars = regexp.MustCompile(`[^a-zA-Z0-9-_]`)
 
-func setupTestCase(t testing.TB, tc *testCase, featureGates map[featuregate.Feature]bool, output io.Writer, outOfTreePluginRegistry frameworkruntime.Registry) (informers.SharedInformerFactory, ktesting.TContext) {
+func setupTestCase(t testing.TB, tc *testCase, featureGates map[featuregate.Feature]bool, outOfTreePluginRegistry frameworkruntime.Registry) (informers.SharedInformerFactory, ktesting.TContext) {
 	tCtx := ktesting.Init(t, initoption.PerTestOutput(UseTestingLog))
 	artifacts, doArtifacts := os.LookupEnv("ARTIFACTS")
 	if !UseTestingLog && doArtifacts {
@@ -1054,6 +1053,11 @@ func setupTestCase(t testing.TB, tc *testCase, featureGates map[featuregate.Feat
 			//
 			// This is a major issue because many Kubernetes goroutines get
 			// started without waiting for them to stop :-(
+			//
+			// In practice, klog's own flushing got called out by the race detector.
+			// As we know about that one, we can force it to stop explicitly to
+			// satisfy the race detector.
+			klog.StopFlushDaemon()
 			if err := logsapi.ResetForTest(LoggingFeatureGate); err != nil {
 				t.Errorf("Failed to reset the logging configuration: %v", err)
 			}
@@ -1086,10 +1090,18 @@ func setupTestCase(t testing.TB, tc *testCase, featureGates map[featuregate.Feat
 
 	// Now that we are ready to run, start
 	// a brand new etcd.
-	framework.StartEtcd(t, output, true)
+	logger := tCtx.Logger()
+	if !UseTestingLog {
+		// Associate output going to the global log with the current test.
+		logger = logger.WithName(tCtx.Name())
+	}
+	framework.StartEtcd(logger, t, true)
 
 	// We need to set emulation version for QueueingHints feature gate, which is locked at 1.34.
-	featuregatetesting.SetFeatureGateEmulationVersionDuringTest(t, utilfeature.DefaultFeatureGate, version.MustParse("1.33"))
+	// Only emulate v1.33 when QueueingHints is explicitly disabled.
+	if qhEnabled, exists := featureGates[features.SchedulerQueueingHints]; exists && !qhEnabled {
+		featuregatetesting.SetFeatureGateEmulationVersionDuringTest(t, utilfeature.DefaultFeatureGate, version.MustParse("1.33"))
+	}
 	for feature, flag := range featureGates {
 		featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, feature, flag)
 	}
@@ -1193,11 +1205,8 @@ func RunBenchmarkPerfScheduling(b *testing.B, configFile string, topicName strin
 					fixJSONOutput(b)
 
 					featureGates := featureGatesMerge(tc.FeatureGates, w.FeatureGates)
-					informerFactory, tCtx := setupTestCase(b, tc, featureGates, output, outOfTreePluginRegistry)
+					informerFactory, tCtx := setupTestCase(b, tc, featureGates, outOfTreePluginRegistry)
 
-					// TODO(#93795): make sure each workload within a test case has a unique
-					// name? The name is used to identify the stats in benchmark reports.
-					// TODO(#94404): check for unused template parameters? Probably a typo.
 					err := w.isValid(tc.MetricsCollectorConfig)
 					if err != nil {
 						b.Fatalf("workload %s is not valid: %v", w.Name, err)
@@ -1305,7 +1314,7 @@ func RunIntegrationPerfScheduling(t *testing.T, configFile string) {
 						t.Skipf("disabled by label filter %q", TestSchedulingLabelFilter)
 					}
 					featureGates := featureGatesMerge(tc.FeatureGates, w.FeatureGates)
-					informerFactory, tCtx := setupTestCase(t, tc, featureGates, nil, nil)
+					informerFactory, tCtx := setupTestCase(t, tc, featureGates, nil)
 					err := w.isValid(tc.MetricsCollectorConfig)
 					if err != nil {
 						t.Fatalf("workload %s is not valid: %v", w.Name, err)
@@ -1886,17 +1895,17 @@ func (e *WorkloadExecutor) runChurnOp(opIndex int, op *churnOp) error {
 }
 
 func (e *WorkloadExecutor) runDefaultOp(opIndex int, op realOp) error {
-	runable, ok := op.(runnableOp)
+	runnable, ok := op.(runnableOp)
 	if !ok {
 		return fmt.Errorf("invalid op %v", op)
 	}
-	for _, namespace := range runable.requiredNamespaces() {
+	for _, namespace := range runnable.requiredNamespaces() {
 		err := createNamespaceIfNotPresent(e.tCtx, namespace, &e.numPodsScheduledPerNamespace)
 		if err != nil {
 			return err
 		}
 	}
-	runable.run(e.tCtx)
+	runnable.run(e.tCtx)
 	return nil
 }
 
@@ -1938,6 +1947,7 @@ func getTestDataCollectors(podInformer coreinformers.PodInformer, name string, n
 	return []testDataCollector{
 		newThroughputCollector(podInformer, map[string]string{"Name": name}, labelSelector, namespaces, throughputErrorMargin),
 		newMetricsCollector(mcc, map[string]string{"Name": name}),
+		newMemoryCollector(map[string]string{"Name": name}, 500*time.Millisecond),
 	}
 }
 
@@ -2166,7 +2176,7 @@ func waitUntilPodsScheduledInNamespace(tCtx ktesting.TContext, podInformer corei
 }
 
 // waitUntilPodsAttemptedInNamespace blocks until all pods in the given
-// namespace at least once went through a schedyling cycle.
+// namespace at least once went through a scheduling cycle.
 // Times out after 10 minutes similarly to waitUntilPodsScheduledInNamespace.
 func waitUntilPodsAttemptedInNamespace(tCtx ktesting.TContext, podInformer coreinformers.PodInformer, labelSelector map[string]string, namespace string, wantCount int) error {
 	var pendingPod *v1.Pod
@@ -2227,7 +2237,7 @@ func waitUntilPodsScheduled(tCtx ktesting.TContext, podInformer coreinformers.Po
 }
 
 // waitUntilPodsAttempted blocks until the all pods in the given namespaces are
-// attempted (at least once went through a schedyling cycle).
+// attempted (at least once went through a scheduling cycle).
 func waitUntilPodsAttempted(tCtx ktesting.TContext, podInformer coreinformers.PodInformer, labelSelector map[string]string, namespaces []string, numPodsScheduledPerNamespace map[string]int) error {
 	// If unspecified, default to all known namespaces.
 	if len(namespaces) == 0 {
@@ -2315,7 +2325,8 @@ func validateTestCases(testCases []*testCase) error {
 			return fmt.Errorf("%s: no ops defined", tc.Name)
 		}
 		// Make sure there's at least one CreatePods op with collectMetrics set to
-		// true in each workload. What's the point of running a performance
+		// true, or a startCollectingMetricsOp together with stopCollectingMetricsOp
+		// in each workload. What's the point of running a performance
 		// benchmark if no statistics are collected for reporting?
 		if !tc.collectsMetrics() {
 			return fmt.Errorf("%s: no op in the workload template collects metrics", tc.Name)
